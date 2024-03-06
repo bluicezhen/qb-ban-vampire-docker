@@ -51,6 +51,7 @@ REGX_OTHERS = re.compile('''
     .+?ransp          | # Net Transport (NX) - need more infomation
     [Qq]{2}           | # QQ (QD) [Dead?]
     [Tt]uo            | # TuoTu (TT) [Dead?]
+    dt\/torrent       |
     Unknown\s(?:
         BN            | # Baidu (BN) [Dead?]
         FG            | # FlashGet (FG)
@@ -95,6 +96,8 @@ class VampireHunter:
     BAN_OTHERS = str2bool(os.getenv('BAN_OTHERS', 'false'))
     # 识别到客户端直接屏蔽不管是否存在上传
     BAN_WITHOUT_RATIO_CHECK = str2bool(os.getenv('BAN_WITHOUT_RATIO_CHECK', 'true'))
+    # 是否验证 SSL 证书
+    SSL_VERIFY = os.getenv('SSL_VERIFY', 'true')
 
     __banned_ips = {}
     logging.basicConfig(level=logging.INFO)
@@ -109,7 +112,12 @@ class VampireHunter:
         ).text;
 
     def __init__(self):
+        if self.SSL_VERIFY == 'false':
+            self.SESSION.verify = False
+            requests.packages.urllib3.disable_warnings()
+        
         self.login_status = self.execute_login()
+
         logging.warning(f'Login status: {self.login_status}')
 
     def get_basicauth(self):
@@ -171,6 +179,8 @@ class VampireHunter:
                 target_client = True
             # 屏蔽野鸡客户端
             if self.BAN_OTHERS and REGX_OTHERS.search(info['client']):
+                target_client = True
+            if info['client'] == '':
                 target_client = True
             # 不检查分享率及下载进度直接屏蔽
             if self.BAN_WITHOUT_RATIO_CHECK:
